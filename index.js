@@ -13,7 +13,7 @@ const client = new Client({
 let isApplicationOpen = true; 
 
 client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}! 10-Question App Bot ready.`);
+    console.log(`Logged in as ${client.user.tag}! 10-Question Secure Bot ready.`);
 });
 
 // Commands
@@ -61,56 +61,67 @@ client.on('interactionCreate', async (interaction) => {
             return await interaction.reply({ content: "Sorry! Applications abhi closed hain.", ephemeral: true });
         }
 
+        // Defer reply immediately
         await interaction.deferReply({ ephemeral: true });
 
-        // Check agar user ka ticket pehle se khula hai
-        const channelName = `app-${interaction.user.username}`.toLowerCase();
-        const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
-        if (existingChannel) {
-            return await interaction.editReply({ content: `Aapka application channel pehle se khula hai: ${existingChannel}` });
+        try {
+            const channelName = `app-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
+            
+            if (existingChannel) {
+                return await interaction.editReply({ content: `Aapka application channel pehle se khula hai: ${existingChannel}` });
+            }
+
+            // Private Channel Create karna with Try-Catch protection
+            const ticketChannel = await interaction.guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                permissionOverwrites: [
+                    {
+                        id: interaction.guild.id, // Hide from everyone
+                        deny: [PermissionFlagsBits.ViewChannel],
+                    },
+                    {
+                        id: interaction.user.id, // Show to applicant
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
+                    },
+                    {
+                        id: client.user.id, // Show to bot itself
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
+                    }
+                ],
+            });
+
+            const questionsEmbed = new EmbedBuilder()
+                .setTitle("📝 OrangeMC Staff Application Form")
+                .setDescription("Neeche diye gaye **10 Questions** ka jawab ek hi bade message me ya step-by-step isi channel me type karke bhejein.\n\n" +
+                    "**1.** Aapki real age kya hai aur aap kahan se hain?\n" +
+                    "**2.** Aap Discord par roz kitna samay (hours) de sakte hain?\n" +
+                    "**3.** Kya aapne pehle kisi server me Staff/Mod ka kaam kiya hai?\n" +
+                    "**4.** Aapko Discord permissions aur Moderation bots ki kitni samajh hai?\n" +
+                    "**5.** Aap hamare hi server ke staff kyu banna chahte hain?\n" +
+                    "**6.** Aap baaki applicants se kaise alag hain aur hamara server aapko kyu select kare?\n" +
+                    "**7.** (Scenario) Agar chat me koi bhot toxic ho raha ho, toh aapka pehla action kya hoga?\n" +
+                    "**8.** (Scenario) Agar koi co-staff apni powers ka galat use kare, toh aap kya karenge?\n" +
+                    "**9.** (Scenario) Agar server par achanak link-spam ya bots ka Raid ho jaye, toh aap kya karenge?\n" +
+                    "**10.** Kya aap bina bataye inactive hone par staff role se hataye jaane ke liye taiyar hain?\n\n" +
+                    "*Jawab dene ke baad niche diye gaye **'Submit Application'** button par click karein.*")
+                .setColor("#ffaa00");
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`submit_app_${interaction.user.id}`)
+                    .setLabel('Submit Application')
+                    .setStyle(ButtonStyle.Primary)
+            );
+
+            await ticketChannel.send({ content: `${interaction.user}, Welcome!`, embeds: [questionsEmbed], components: [row] });
+            await interaction.editReply({ content: `Aapka application channel create ho gaya hai: ${ticketChannel}` });
+
+        } catch (error) {
+            console.error("Channel Create Error:", error);
+            await interaction.editReply({ content: "❌ Application channel banane me error aaya. Kripya check karein ki Bot ke paas `Manage Channels` permission hai ya nahi!" });
         }
-
-        // Private Channel Create karna member ke liye
-        const ticketChannel = await interaction.guild.channels.create({
-            name: channelName,
-            type: ChannelType.GuildText,
-            permissionOverwrites: [
-                {
-                    id: interaction.guild.id, // Hide from everyone
-                    deny: [PermissionFlagsBits.ViewChannel],
-                },
-                {
-                    id: interaction.user.id, // Show to applicant
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
-                }
-            ],
-        });
-
-        const questionsEmbed = new EmbedBuilder()
-            .setTitle("📝 OrangeMC Staff Application Form")
-            .setDescription("Neeche diye gaye **10 Questions** ka jawab ek hi bade message me ya step-by-step isi channel me type karke bhejein.\n\n" +
-                "**1.** Aapki real age kya hai aur aap kahan se hain?\n" +
-                "**2.** Aap Discord par roz kitna samay (hours) de sakte hain?\n" +
-                "**3.** Kya aapne pehle kisi server me Staff/Mod ka kaam kiya hai?\n" +
-                "**4.** Aapko Discord permissions aur Moderation bots ki kitni samajh hai?\n" +
-                "**5.** Aap hamare hi server ke staff kyu banna chahte hain?\n" +
-                "**6.** Aap baaki applicants se kaise alag hain aur hamara server aapko kyu select kare?\n" +
-                "**7.** (Scenario) Agar chat me koi bhot toxic ho raha ho, toh aapka pehla action kya hoga?\n" +
-                "**8.** (Scenario) Agar koi co-staff apni powers ka galat use kare, toh aap kya karenge?\n" +
-                "**9.** (Scenario) Agar server par achanak link-spam ya bots ka Raid ho jaye, toh aap kya karenge?\n" +
-                "**10.** Kya aap bina bataye inactive hone par staff role se hataye jaane ke liye taiyar hain?\n\n" +
-                "*Jawab dene ke baad niche diye gaye **'Submit Application'** button par click karein.*")
-            .setColor("#ffaa00");
-
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId(`submit_app_${interaction.user.id}`)
-                .setLabel('Submit Application')
-                .setStyle(ButtonStyle.Primary)
-        );
-
-        await ticketChannel.send({ content: `${interaction.user}, Welcome!`, embeds: [questionsEmbed], components: [row] });
-        await interaction.editReply({ content: `Aapka application channel create ho gaya hai: ${ticketChannel}` });
     }
 
     // Submit handling
@@ -122,28 +133,31 @@ client.on('interactionCreate', async (interaction) => {
 
         await interaction.reply({ content: "Application submit ho rahi hai... please wait." });
 
-        const logChannel = client.channels.cache.get(process.env.APPLICATION_CHANNEL_ID);
-        
-        // Channel se saari chat fetch karna jahan member ne answer likha hai
-        const messages = await interaction.channel.messages.fetch({ limit: 50 });
-        const userMessages = messages.filter(m => m.author.id === userId).map(m => m.content).reverse().join('\n');
+        try {
+            const logChannel = client.channels.cache.get(process.env.APPLICATION_CHANNEL_ID);
+            const messages = await interaction.channel.messages.fetch({ limit: 50 });
+            const userMessages = messages.filter(m => m.author.id === userId).map(m => m.content).reverse().join('\n');
 
-        const logEmbed = new EmbedBuilder()
-            .setTitle(`🛡️ Application Submitted: ${interaction.user.tag}`)
-            .setDescription(`**Answers text:**\n\n${userMessages || "*Koi text nahi mila, shayad user ne sirf images bheji hain ya kuch nahi likha.*"}`)
-            .setColor("#00ff66")
-            .setThumbnail(interaction.user.displayAvatarURL())
-            .setTimestamp();
+            const logEmbed = new EmbedBuilder()
+                .setTitle(`🛡️ Application Submitted: ${interaction.user.tag}`)
+                .setDescription(`**Answers text:**\n\n${userMessages || "*Koi text nahi mila.*"}`)
+                .setColor("#00ff66")
+                .setThumbnail(interaction.user.displayAvatarURL())
+                .setTimestamp();
 
-        if (logChannel) {
-            await logChannel.send({ embeds: [logEmbed] });
-            await interaction.channel.send("✅ Aapka application review ke liye bhej diya gaya hai! Yeh channel 5 seconds me delete ho jayega.");
-            
-            setTimeout(async () => {
-                await interaction.channel.delete().catch(err => console.log("Channel delete error:", err));
-            }, 5000);
-        } else {
-            await interaction.followUp({ content: "Error: Staff log channel nahi mila. Admin settings check karein.", ephemeral: true });
+            if (logChannel) {
+                await logChannel.send({ embeds: [logEmbed] });
+                await interaction.channel.send("✅ Aapka application review ke liye bhej diya gaya hai! Yeh channel 5 seconds me delete ho jayega.");
+                
+                setTimeout(async () => {
+                    await interaction.channel.delete().catch(err => console.log("Channel delete error:", err));
+                }, 5000);
+            } else {
+                await interaction.followUp({ content: "Error: Staff log channel nahi mila. Admin settings check karein.", ephemeral: true });
+            }
+        } catch (err) {
+            console.error(err);
+            await interaction.followUp({ content: "Submission me kuch dikkat aayi.", ephemeral: true });
         }
     }
 });
