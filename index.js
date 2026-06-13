@@ -13,7 +13,7 @@ const client = new Client({
 let isApplicationOpen = true; 
 
 client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}! 10-Question Secure Bot ready.`);
+    console.log(`Logged in as ${client.user.tag}! Ultimate Fast Bot ready.`);
 });
 
 // Commands
@@ -61,18 +61,19 @@ client.on('interactionCreate', async (interaction) => {
             return await interaction.reply({ content: "Sorry! Applications abhi closed hain.", ephemeral: true });
         }
 
-        // Defer reply immediately
-        await interaction.deferReply({ ephemeral: true });
+        // Fix: Pehle hi reply ko acknowledge kar rahe hain bina defer kiye taaki timeout na ho
+        const channelName = `app-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
+        
+        if (existingChannel) {
+            return await interaction.reply({ content: `Aapka application channel pehle se khula hai: ${existingChannel}`, ephemeral: true });
+        }
+
+        // Instant reply taaki "Interaction Failed" na dikhaye
+        await interaction.reply({ content: "⏳ Aapka private application channel banaya ja raha hai...", ephemeral: true });
 
         try {
-            const channelName = `app-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const existingChannel = interaction.guild.channels.cache.find(c => c.name === channelName);
-            
-            if (existingChannel) {
-                return await interaction.editReply({ content: `Aapka application channel pehle se khula hai: ${existingChannel}` });
-            }
-
-            // Private Channel Create karna with Try-Catch protection
+            // Private Channel Create karna
             const ticketChannel = await interaction.guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
@@ -86,7 +87,7 @@ client.on('interactionCreate', async (interaction) => {
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory],
                     },
                     {
-                        id: client.user.id, // Show to bot itself
+                        id: client.user.id, // Show to bot
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
                     }
                 ],
@@ -115,12 +116,14 @@ client.on('interactionCreate', async (interaction) => {
                     .setStyle(ButtonStyle.Primary)
             );
 
-            await ticketChannel.send({ content: `${interaction.user}, Welcome!`, embeds: [questionsEmbed], components: [row] });
-            await interaction.editReply({ content: `Aapka application channel create ho gaya hai: ${ticketChannel}` });
+            await ticketChannel.send({ content: `${interaction.user}, Welcome! Aapka form yahan taiyar hai.`, embeds: [questionsEmbed], components: [row] });
+            
+            // Edit the instant reply with the final channel link
+            await interaction.editReply({ content: `✅ Aapka application channel ban gaya hai: ${ticketChannel}` });
 
         } catch (error) {
             console.error("Channel Create Error:", error);
-            await interaction.editReply({ content: "❌ Application channel banane me error aaya. Kripya check karein ki Bot ke paas `Manage Channels` permission hai ya nahi!" });
+            await interaction.editReply({ content: "❌ Channel banane me dikkat aayi. Check karein ki bot ke paas sahi permissions hain." });
         }
     }
 
@@ -131,16 +134,22 @@ client.on('interactionCreate', async (interaction) => {
             return await interaction.reply({ content: "Sirf applicant hi is button ko daba sakta hai.", ephemeral: true });
         }
 
-        await interaction.reply({ content: "Application submit ho rahi hai... please wait." });
+        await interaction.reply({ content: "🔄 Application submit ho rahi hai... please wait." });
 
         try {
             const logChannel = client.channels.cache.get(process.env.APPLICATION_CHANNEL_ID);
             const messages = await interaction.channel.messages.fetch({ limit: 50 });
-            const userMessages = messages.filter(m => m.author.id === userId).map(m => m.content).reverse().join('\n');
+            
+            // Purane se naye messages ko filter karna aur text text jodna
+            const userMessages = messages
+                .filter(m => m.author.id === userId)
+                .map(m => m.content)
+                .reverse()
+                .join('\n');
 
             const logEmbed = new EmbedBuilder()
-                .setTitle(`🛡️ Application Submitted: ${interaction.user.tag}`)
-                .setDescription(`**Answers text:**\n\n${userMessages || "*Koi text nahi mila.*"}`)
+                .setTitle(`🛡️ New 10-Question Application: ${interaction.user.tag}`)
+                .setDescription(`**Submitted Answers:**\n\n${userMessages || "*Koi text message nahi mila.*"}`)
                 .setColor("#00ff66")
                 .setThumbnail(interaction.user.displayAvatarURL())
                 .setTimestamp();
@@ -153,11 +162,11 @@ client.on('interactionCreate', async (interaction) => {
                     await interaction.channel.delete().catch(err => console.log("Channel delete error:", err));
                 }, 5000);
             } else {
-                await interaction.followUp({ content: "Error: Staff log channel nahi mila. Admin settings check karein.", ephemeral: true });
+                await interaction.followUp({ content: "Error: Staff log channel nahi mila. APPLICATION_CHANNEL_ID check karein.", ephemeral: true });
             }
         } catch (err) {
             console.error(err);
-            await interaction.followUp({ content: "Submission me kuch dikkat aayi.", ephemeral: true });
+            await interaction.followUp({ content: "Submission fail ho gayi.", ephemeral: true });
         }
     }
 });
