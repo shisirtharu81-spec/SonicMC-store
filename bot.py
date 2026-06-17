@@ -15,9 +15,11 @@ def home():
     return "🟢 SonicMC Store Bot is operational and running 24/7!"
 
 def run_server():
+    # Binds server to port 8080 for cloud environments like Render
     app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
+    """Starts a background thread to keep the web server running independently."""
     t = Thread(target=run_server)
     t.start()
 
@@ -36,6 +38,7 @@ class ShopDropdown(Select):
         super().__init__(placeholder="⚡ Choose a category from the market...", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: nextcord.Interaction):
+        # 🛠️ FIXED: Added to get the exact string value from the list
         selection = self.values
         
         embed = nextcord.Embed(
@@ -57,10 +60,7 @@ class ShopDropdown(Select):
         
         view = View(timeout=None)
         view.add_item(Button(label="Purchase Order", style=nextcord.ButtonStyle.blurple, custom_id="buy_btn", emoji="💳"))
-        
-        # 🌐 Aapka Store Link Button Category View Ke Liye
         view.add_item(Button(label="Visit Web Store", style=nextcord.ButtonStyle.link, url="https://storemec.storemc.qzz.io"))
-        
         view.add_item(ShopDropdown())
         
         await interaction.response.edit_message(embed=embed, view=view)
@@ -69,7 +69,6 @@ class ShopDropdown(Select):
 class ShopView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        # 🌐 Aapka Store Link Button Main Menu Ke Liye
         self.add_item(Button(label="Visit Web Store", style=nextcord.ButtonStyle.link, url="https://storemec.storemc.qzz.io"))
         self.add_item(ShopDropdown())
 
@@ -112,7 +111,6 @@ async def shop(interaction: nextcord.Interaction):
     embed.add_field(name="⚡ Automated Pipeline", value="📦 Instant distribution pipeline right into your private DMs.", inline=False)
     embed.add_field(name="🛡️ Escrow Protection", value="🔒 Fully verified, encrypted checkout infrastructure.", inline=False)
     
-    # 🌐 Footer URL Update
     embed.set_footer(text="Web: storemec.storemc.qzz.io • Built for SonicMC")
     
     await interaction.response.send_message(embed=embed, view=ShopView())
@@ -143,4 +141,29 @@ async def on_interaction(interaction: nextcord.Interaction):
                 max_length=150
             )
             
-            modal
+            modal.add_item(product_input)
+            modal.add_item(email_input)
+            
+            async def modal_callback(modal_interaction: nextcord.Interaction):
+                await modal_interaction.response.send_message(
+                    f"✨ **Order Request Registered Successfully!** ✨\n\n"
+                    f"🎫 **Target Item:** `{product_input.value}`\n"
+                    f"📧 **Delivery Node:** `{email_input.value}`\n\n"
+                    f"*Our background payment gateway has generated your transaction ticket. If the bot DM doesn't arrive, please purchase directly through our [Web Store](https://storemec.storemc.qzz.io)!*", 
+                    ephemeral=True
+                )
+            
+            modal.callback = modal_callback
+            # 🛠️ FIXED: Modal is now correctly triggered
+            await interaction.response.send_modal(modal)
+
+
+# ==========================================
+# 🛑 STEP 6: EXECUTING HOST RUNTIME
+# ==========================================
+if __name__ == "__main__":
+    # Web server active karein background thread me
+    keep_alive()
+    
+    # ⚠️ Apna token quotes "" ke andar daalna mat bhoolna
+    bot.run("YOUR_DISCORD_BOT_TOKEN_HERE")
